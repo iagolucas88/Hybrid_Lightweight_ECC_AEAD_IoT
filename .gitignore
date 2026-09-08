@@ -1,0 +1,31 @@
+# Build
+build/
+build-*/
+out/
+.cache/
+compile_commands.json
+
+# Python virtualenv (benchmarks/resultados)
+benchmarks/resultados/
+*.egg-info/
+__pycache__/
+
+# Binários
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.exe
+protocolo_hibrido
+benchmark_suite
+
+# Resultados de benchmark (gerados automaticamente)
+*.csv
+
+# IDE / editor
+*.log
+.vscode/
+.idea/
+*.swp
+~$*

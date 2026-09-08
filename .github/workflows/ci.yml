@@ -1,0 +1,44 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-and-test-arm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install toolchain, ARM GMP and QEMU
+        run: |
+          sudo dpkg --add-architecture armhf
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            ninja-build \
+            pkg-config \
+            qemu-user-static \
+            binfmt-support \
+            gcc-arm-linux-gnueabihf \
+            g++-arm-linux-gnueabihf \
+            libc6-dev-armhf-cross \
+            libgmp-dev:armhf
+
+      - name: Configure ARM build
+        run: |
+          cmake -S . -B build-arm -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=toolchains/armhf-gcc.cmake \
+            -DIOT_CRYPTO_BUILD_TESTS=ON \
+            -DIOT_CRYPTO_BUILD_BENCHMARKS=OFF
+
+      - name: Build
+        run: cmake --build build-arm --parallel
+
+      - name: Run tests through QEMU
+        run: ctest --test-dir build-arm --output-on-failure
