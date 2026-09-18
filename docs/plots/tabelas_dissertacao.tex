@@ -14,17 +14,17 @@
 \hline
 \textbf{Primitiva / Operação} & \textbf{Entrada} & \textbf{Média ($\mu$s)} & \textbf{$\sigma$ ($\mu$s)} & \textbf{P95 ($\mu$s)} & \textbf{RAM (KB)} & \textbf{Energia ($\mu$J)} \\
 \hline
-Ed25519 Geração & Chave 256b & 9215.0 & 183.4 & 9540.0 & 1496 & 4607.5 \\
-Ed25519 Assinatura & Msg 32B & 8217.3 & 145.7 & 8271.0 & 1496 & 4108.6 \\
-Ed25519 Verificação & Sig 64B & 16939.7 & 431.0 & 17362.3 & 1496 & 8469.9 \\
-X25519 Escada Montgomery & Ponto 255b & 5356.2 & 19.7 & 5461.7 & 1496 & 2678.1 \\
-HKDF-SHA512 Derivação & IKM 32B & 51.9 & 0.9 & 54.3 & 1496 & 25.9 \\
-ChaCha20-Poly1305 Cifragem & 64 B & 4.1 & 0.1 & 4.0 & 1496 & 2.0 \\
-ChaCha20-Poly1305 Decifragem & 64 B & 4.4 & 0.3 & 5.0 & 1496 & 2.2 \\
-ChaCha20-Poly1305 Cifragem & 1 KB & 35.3 & 0.0 & 38.3 & 1496 & 17.6 \\
-ChaCha20-Poly1305 Cifragem & 16 KB & 515.7 & 4.0 & 566.7 & 1496 & 257.8 \\
-Handshake Completo + 1 Msg & Sessão N=1 & 50976.8 & 158.2 & 52167.7 & 1496 & 25488.4 \\
-Handshake + 100 Msgs & Sessão N=100 & 513.9 & 1.9 & 523.1 & 1496 & 257.0 \\
+Ed25519 Geração & Chave 256b & 9095.4 & 169.3 & 9548.0 & 1496 & 4547.7 \\
+Ed25519 Assinatura & Msg 32B & 8143.8 & 224.7 & 8426.9 & 1496 & 4071.9 \\
+Ed25519 Verificação & Sig 64B & 16791.4 & 290.8 & 17197.9 & 1496 & 8395.7 \\
+X25519 Escada Montgomery & Ponto 255b & 5327.2 & 65.2 & 5528.1 & 1496 & 2663.6 \\
+HKDF-SHA512 Derivação & IKM 32B & 51.2 & 0.6 & 54.4 & 1496 & 25.6 \\
+ChaCha20-Poly1305 Cifragem & 64 B & 4.2 & 0.3 & 4.1 & 1496 & 2.1 \\
+ChaCha20-Poly1305 Decifragem & 64 B & 4.1 & 0.2 & 4.0 & 1496 & 2.1 \\
+ChaCha20-Poly1305 Cifragem & 1 KB & 35.4 & 1.3 & 39.6 & 1496 & 17.7 \\
+ChaCha20-Poly1305 Cifragem & 16 KB & 527.7 & 30.9 & 654.6 & 1496 & 263.9 \\
+Handshake Completo + 1 Msg & Sessão N=1 & 49681.9 & 169.3 & 51151.4 & 1496 & 24841.0 \\
+Handshake + 100 Msgs & Sessão N=100 & 504.4 & 3.7 & 516.8 & 1496 & 252.2 \\
 \hline
 \multicolumn{7}{l}{\footnotesize Modelo de Potência: $P_{\text{core}} = 500\text{ mW}$ a 667 MHz ($E_{\text{cycle}} = 0{,}75\text{ nJ/ciclo}$ conforme Xilinx DS187 e NXP AN4509).} \\
 \end{tabular}
@@ -41,11 +41,11 @@ Handshake + 100 Msgs & Sessão N=100 & 513.9 & 1.9 & 523.1 & 1496 & 257.0 \\
 \hline
 \textbf{Classes de Peso de Hamming} & \textbf{Média 1 ($\mu$s)} & \textbf{Média 2 ($\mu$s)} & \textbf{Estatística $|t|$} & \textbf{$p$-valor} & \textbf{Veredito TVLA} \\
 \hline
-Baixo (~10b) vs. Médio-Baixo (~64b) & 4770.6 & 4583.8 & 2.172 & 0.0299 & \textbf{APROVADO ($|t| < 4.5$)} \\
-Baixo (~10b) vs. Médio-Alto (~192b) & 4770.6 & 4608.1 & 1.928 & 0.0539 & \textbf{APROVADO ($|t| < 4.5$)} \\
-Baixo (~10b) vs. Alto (~245b) & 4770.6 & 4587.6 & 2.114 & 0.0345 & \textbf{APROVADO ($|t| < 4.5$)} \\
-Médio-Baixo (~64b) vs. Alto (~245b) & 4583.8 & 4587.6 & 0.110 & 0.9120 & \textbf{APROVADO ($|t| < 4.5$)} \\
-Médio-Alto (~192b) vs. Alto (~245b) & 4608.1 & 4587.6 & 0.709 & 0.4786 & \textbf{APROVADO ($|t| < 4.5$)} \\
+Baixo (~10b) vs. Médio-Baixo (~64b) & 4420.7 & 4426.2 & 0.708 & 0.4791 & \textbf{APROVADO ($|t| < 4{,}5$)} \\
+Baixo (~10b) vs. Médio-Alto (~192b) & 4420.7 & 4453.5 & 3.823 & 0.0001 & \textbf{APROVADO ($|t| < 4{,}5$)} \\
+Baixo (~10b) vs. Alto (~245b) & 4420.7 & 4514.7 & 11.922 & 0.0000 & \textbf{ALERTA ($|t| \ge 4{,}5$)} \\
+Médio-Baixo (~64b) vs. Alto (~245b) & 4426.2 & 4514.7 & 12.118 & 0.0000 & \textbf{ALERTA ($|t| \ge 4{,}5$)} \\
+Médio-Alto (~192b) vs. Alto (~245b) & 4453.5 & 4514.7 & 7.478 & 0.0000 & \textbf{ALERTA ($|t| \ge 4{,}5$)} \\
 \hline
 \multicolumn{6}{l}{\footnotesize Critério normativo internacional: ISO/IEC 17825 ($|t| < 4{,}5$ indica ausência estatística de canal lateral).} \\
 \end{tabular}

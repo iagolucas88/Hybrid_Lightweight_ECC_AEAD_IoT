@@ -466,7 +466,8 @@ def plot_tvla_welch_ttest(timing_csv: Path, out_dir: Path) -> list:
 
     for bar, r in zip(bars, results):
         h = bar.get_height()
-        ax.annotate(f"|t| = {h:.2f}\np = {r['p_val']:.3f}\n(PASS)",
+        status_txt = "PASS" if r["pass"] else "ALERTA"
+        ax.annotate(f"|t| = {h:.2f}\np = {r['p_val']:.3f}\n({status_txt})",
                     xy=(bar.get_x() + bar.get_width()/2, h),
                     xytext=(0, 4), textcoords="offset points", ha="center", fontsize=8, fontweight="bold",
                     color=C_GREEN if r["pass"] else C_RED)
@@ -631,7 +632,8 @@ def export_latex_tables(df_benchmark: pd.DataFrame, tvla_results: list, out_dir:
             f.write("\\textbf{Classes de Peso de Hamming} & \\textbf{Média 1 ($\\mu$s)} & \\textbf{Média 2 ($\\mu$s)} & \\textbf{Estatística $|t|$} & \\textbf{$p$-valor} & \\textbf{Veredito TVLA} \\\\\n")
             f.write("\\hline\n")
             for r in tvla_results:
-                f.write(f"{r['c1']} vs. {r['c2']} & {r['m1']:.1f} & {r['m2']:.1f} & {r['abs_t']:.3f} & {r['p_val']:.4f} & \\textbf{{APROVADO ($|t| < 4.5$)}} \\\\\n")
+                veredito = "\\textbf{APROVADO ($|t| < 4{,}5$)}" if r["pass"] else "\\textbf{ALERTA ($|t| \\ge 4{,}5$)}"
+                f.write(f"{r['c1']} vs. {r['c2']} & {r['m1']:.1f} & {r['m2']:.1f} & {r['abs_t']:.3f} & {r['p_val']:.4f} & {veredito} \\\\\n")
             f.write("\\hline\n")
             f.write("\\multicolumn{6}{l}{\\footnotesize Critério normativo internacional: ISO/IEC 17825 ($|t| < 4{,}5$ indica ausência estatística de canal lateral).} \\\\\n")
             f.write("\\end{tabular}\n")

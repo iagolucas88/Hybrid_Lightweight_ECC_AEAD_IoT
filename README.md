@@ -161,7 +161,7 @@ O demonstrador permite apresentar à banca examinadora, de maneira visual e em t
 
 **Funcionalidades do Menu Interativo:**
 * **Opção 1 — Tráfego Contínuo**: Demonstração de transmissão sequencial de mensagens de telemetria e o efeito da amortização do handshake sobre o tempo médio de mensagem.
-* **Opção 2 — Simulação de Ataque Man-in-the-Middle (MitM)**: Injeção de ruído no ciphertext, adulteração de chave pública e modificação de metadados (AAD), comprovando a rejeição imediata da autenticação Poly1305.
+* **Opção 2 — Simulação de Ataque Man-in-the-Middle (MitM)**: Injeção de ruído no ciphertext ou na Tag Poly1305 com validação estrita de limites de mensagens, auditoria detalhada em log e comprovação de 100% de interceptação e rejeição criptográfica.
 * **Opção 3 — Demonstração de Timing e Conditional Swap (CSWAP)**: Execução da Escada de Montgomery sob escalares de pesos de Hamming extremos, ilustrando a regularidade de ciclos e cálculo de Coeficiente de Variação (CV).
 * **Opção 4 — Inspeção Matemática Detalhada**: Exibição da matriz de estado 4x4 do ChaCha20, rotações de quarto de rodada (Quarter-Rounds) e acumulação no campo $\mathbb{F}_{2^{130}-5}$.
 
@@ -200,27 +200,70 @@ O protocolo foi modelado para oferecer **segurança equivalente a 128 bits** com
 
 ## 🔬 Resultados e Discussão (Capítulo 4 da Dissertação)
 
-Todos os ensaios foram conduzidos no ambiente emulado **ARM Cortex-A9 (ARMv7-A 32-bit)** com Debian Linux bookworm. As métricas energéticas adotam o modelo físico de referência:
-* Frequência nominal: **667 MHz** (conforme Xilinx Zynq-7000 / NXP i.MX6)
+Todos os ensaios foram conduzidos no ambiente emulado **ARM Cortex-A9 (ARMv7-A 32-bit)** com Debian Linux bookworm sob **50 macro-rodadas e 1.000 iterações internas por rodada (amostragem massiva de 50.000 execuções)**.
+
+### Modelo Físico e Energético de Referência (ARM Cortex-A9 @ 667 MHz)
+* Frequência nominal: **667 MHz** (conforme SoCs industriais Xilinx Zynq-7000 / NXP i.MX6)
 * Potência ativa do núcleo ($P_{\text{core}}$): **$500\text{ mW}$** (Folhas de dados Xilinx DS187 e NXP AN4509)
+* Potência do SoC completo ($P_{\text{SoC}}$): **$1.200\text{ mW}$** (núcleo + barramento AXI + controlador DDR3)
 * Energia por ciclo de clock ($E_{\text{cycle}}$): **$0{,}75\text{ nJ/ciclo}$**
 
-### Galeria de Gráficos Especializados
+---
 
-| Consumo Energético por Primitiva | Amortização Energética de Sessão |
-| :---: | :---: |
-| ![Energia por Primitiva](docs/plots/dissertacao_01_energia_primitivas.png) | ![Amortização Energética](docs/plots/dissertacao_02_energia_amortizada_sessao.png) |
-| *Custo de energia em escala logarítmica: ChaCha20 consome apenas $2{,}0\ \mu\text{J}$ por pacote de 64B.* | *O custo específico por mensagem cai $99{,}88\%$ ao transmitir 1000 mensagens sob a mesma chave.* |
+### 📈 Galeria de Gráficos da Dissertação e Síntese Comparativa (50 Rodadas)
 
-| Estimativa de Autonomia de Bateria | Eficiência de Transmissão (Goodput) em Redes IoT |
+#### Eixo 1: Tendência Global e Estabilidade Operacional entre as 50 Rodadas
+| Tendência e Dispersão Temporal (50 Macro-Rodadas) | Índice de Estabilidade e Dispersão (CV %) |
 | :---: | :---: |
-| ![Autonomia de Bateria](docs/plots/dissertacao_03_autonomia_bateria.png) | ![Goodput e MTU](docs/plots/dissertacao_04_eficiencia_rede_goodput.png) |
-| *Com amortização ($N=100$), uma bateria CR2032 de $2.376\text{ J}$ suporta $> 9{,}2$ milhões de transmissões.* | *Goodput vs. MTU de LoRaWAN (51B), Zigbee (127B) e BLE (251B). Overhead fixo de 28B.* |
+| ![Tendência 50 rodadas](docs/plots/comp_01_protocolo_hibrido_trend.png) | ![Estabilidade CV](docs/plots/comp_08_stability_cv.png) |
+| *Média geral rigorosamente estável em $49.681{,}9\ \mu\text{s}$ ($\sigma = 169{,}3\ \mu\text{s}$), com estreita banda P95/P99.* | *Coeficiente de Variação (CV) $< 1\%$ no custo amortizado e $< 3\%$ na vasta maioria das primitivas.* |
 
-| Avaliação de Canal Lateral (TVLA ISO/IEC 17825) | Ponto Ótimo de Renovação de Chaves (Rekeying) |
+#### Eixo 2: Escalabilidade de Curva e Consumo de Energia por Primitiva
+| Escalabilidade X25519 vs. Tamanho do Campo (50 Rodadas) | Consumo Energético por Primitiva (Log) |
 | :---: | :---: |
-| ![TVLA Welch t-test](docs/plots/dissertacao_05_tvla_welch_ttest.png) | ![Ponto Ótimo de Rekeying](docs/plots/dissertacao_06_ponto_otimo_rekeying.png) |
-| *Welch's t-test na Escada de Montgomery: todos $|t| \le 2{,}17$, bem abaixo do limite normativo $|t| < 4{,}5$.* | *Trade-off entre PFS e CPU: equilíbrio ótimo ocorre em $N \in [50, 100]$, reduzindo a carga a $< 0{,}1\%$.* |
+| ![Escalabilidade X25519](docs/plots/comp_02_escalabilidade_x25519.png) | ![Energia por Primitiva](docs/plots/dissertacao_01_energia_primitivas.png) |
+| *Tempo de computação em função do nível de segurança (80 a 256 bits). Desvio padrão imperceptível.* | *Custo de energia: ChaCha20 consome apenas $2{,}1\ \mu\text{J}$ por bloco de 64B ($25{,}6\ \mu\text{J}$ no HKDF).* |
+
+#### Eixo 3: Eficiência de Sessão, Bateria e Redes IoT
+| Amortização Energética de Sessão | Estimativa de Autonomia de Bateria |
+| :---: | :---: |
+| ![Amortização Energética](docs/plots/dissertacao_02_energia_amortizada_sessao.png) | ![Autonomia de Bateria](docs/plots/dissertacao_03_autonomia_bateria.png) |
+| *O custo por mensagem cai $98{,}98\%$ em $N=100$ ($504{,}4\ \mu\text{s}$) e $99{,}88\%$ em $N=1000$ ($57{,}5\ \mu\text{s}$).* | *Com amortização ($N=100$), uma bateria CR2032 (2.376 J) suporta $> 9{,}4$ milhões de mensagens.* |
+
+#### Eixo 4: Eficiência de Rede, Canal Lateral e Rekeying Ótimo
+| Eficiência de Transmissão (Goodput) em Redes IoT | Avaliação de Canal Lateral (TVLA / Welch's t-test) |
+| :---: | :---: |
+| ![Goodput e MTU](docs/plots/dissertacao_04_eficiencia_rede_goodput.png) | ![TVLA Welch t-test](docs/plots/dissertacao_05_tvla_welch_ttest.png) |
+| *Overhead fixo de apenas 28B (12B nonce + 16B tag). Compatível com LoRaWAN (51B), Zigbee (127B) e BLE (251B).* | *Avaliação estatística entre classes de peso de Hamming do escalar na Escada de Montgomery X25519.* |
+
+| Ponto Ótimo de Renovação de Chaves (Rekeying Duty Cycle) |
+| :---: |
+| ![Ponto Ótimo de Rekeying](docs/plots/dissertacao_06_ponto_otimo_rekeying.png) |
+| *Equilíbrio ótimo entre Perfect Forward Secrecy e disponibilidade: $N \in [50, 100]$ reduz a ocupação contínua de CPU do nó sensor a apenas $0{,}05\% \sim 0{,}10\%$.* |
+
+---
+
+## 📊 Síntese Estatística da Campanha (50 Macro-Rodadas)
+
+Abaixo estão os dados consolidados das 50 macro-rodadas (amostragem de 50.000 iterações no ARM Cortex-A9):
+
+| Primitiva / Etapa Avaliada | Condição de Teste | Média ($\mu$s) | Desvio $\sigma$ ($\mu$s) | P95 ($\mu$s) | CV (%) | Energia ($\mu$J) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Handshake Completo + 1 Msg** | Sessão $N=1$ | **$49.681{,}9$** | $169{,}3$ | $51.151{,}4$ | **$0{,}34\%$** | $24.841{,}0$ |
+| **Sessão Amortizada $N=10$** | 10 msgs / chave | **$4.972{,}6$** | $37{,}1$ | $5.103{,}3$ | **$0{,}75\%$** | $2.486{,}3$ |
+| **Sessão Amortizada $N=100$** | 100 msgs / chave | **$504{,}4$** | $3{,}7$ | $516{,}8$ | **$0{,}74\%$** | $252{,}2$ |
+| **Sessão Amortizada $N=1000$** | 1000 msgs / chave | **$57{,}5$** | $0{,}3$ | $59{,}1$ | **$0{,}57\%$** | $28{,}8$ |
+| **Ed25519 Verificação** | Sig 64B (isolado) | **$16.791{,}4$** | $290{,}8$ | $17.197{,}9$ | $1{,}73\%$ | $8.395{,}7$ |
+| **Ed25519 Geração de Chave** | Chave 256b | **$9.095{,}4$** | $169{,}3$ | $9.548{,}0$ | $1{,}86\%$ | $4.547{,}7$ |
+| **Ed25519 Assinatura** | Msg 32B (isolado) | **$8.143{,}8$** | $224{,}7$ | $8.426{,}9$ | $2{,}76\%$ | $4.071{,}9$ |
+| **X25519 Escada Montgomery** | Escalar 255b real | **$5.327{,}2$** | $65{,}2$ | $5.528{,}1$ | **$1{,}22\%$** | $2.663{,}6$ |
+| **ChaCha20-Poly1305 Cifragem** | Payload 64 B | **$4{,}18$** | $0{,}26$ | $4{,}06$ | $6{,}24\%$ | $2{,}09$ |
+| **ChaCha20-Poly1305 Decifragem** | Payload 64 B | **$4{,}15$** | $0{,}22$ | $4{,}04$ | $5{,}19\%$ | $2{,}07$ |
+| **ChaCha20-Poly1305 Cifragem** | Payload 1 KB | **$35{,}4$** | $1{,}30$ | $39{,}6$ | $3{,}68\%$ | $17{,}7$ |
+| **ChaCha20-Poly1305 Cifragem** | Payload 16 KB | **$527{,}7$** | $30{,}9$ | $654{,}6$ | $5{,}86\%$ | $263{,}9$ |
+| **HKDF-SHA512 Derivação** | 32B IKM $\to$ 32B OKM | **$51{,}2$** | $0{,}58$ | $54{,}4$ | **$1{,}13\%$** | $25{,}6$ |
+
+> Os dados brutos consolidados estão disponíveis no arquivo CSV [docs/plots/analise_intervalo_macro_1_a_50.csv](docs/plots/analise_intervalo_macro_1_a_50.csv) e as tabelas completas formatadas para LaTeX estão no arquivo compilável [docs/plots/tabelas_dissertacao.tex](docs/plots/tabelas_dissertacao.tex).
 
 ---
 
@@ -236,7 +279,7 @@ Dados fundamentados nas referências bibliográficas da dissertação (**Suarez-
 | **Overhead de Rede no Handshake** | $\sim 512$ bytes | $\sim 160$ bytes | **128 bytes (Maior economia de enlace)** |
 | **Aceleração / Operações no ARM** | Multiplicação $\mathcal{O}(n^2)$ | Aritmética pesada em campo primo | **Instruções ARX nativas de 1 ciclo** |
 | **Vulnerabilidade a Cache-Timing** | Vulnerável em software | Vulnerável a acessos S-Box | **Imune (Sem tabelas de consulta em memória)** |
-| **Energia Consumida no Handshake** | $\sim 56{,}8\text{ mWh}$ | $\sim 15{,}4\text{ mWh}$ | **$\sim 12{,}5\text{ mJ}$ ($< 0{,}004\text{ mWh}$)** |
+| **Energia Consumida no Handshake** | $\sim 56{,}8\text{ mWh}$ | $\sim 15{,}4\text{ mWh}$ | **$\sim 24{,}8\text{ mJ}$ ($< 0{,}007\text{ mWh}$)** |
 
 > As tabelas completas com média amostral, desvio padrão, percentis P95 e P99 estão disponíveis no arquivo compilável [docs/plots/tabelas_dissertacao.tex](docs/plots/tabelas_dissertacao.tex).
 
