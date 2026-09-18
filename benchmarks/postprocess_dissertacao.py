@@ -34,11 +34,37 @@ import sys
 import math
 import re
 from pathlib import Path
+
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
+
+# Auto-detecção de ambiente virtual: se executado com um Python sem as bibliotecas,
+# reexecuta automaticamente com o virtualenv do projeto (se disponível).
+try:
+    import matplotlib
+    import pandas
+    import numpy
+except ImportError:
+    _root = Path(__file__).resolve().parent.parent
+    _candidates = [
+        _root / "benchmarks" / "resultados" / "bin" / "python",
+        _root / "benchmarks" / "resultados" / "bin" / "python3",
+        _root / ".venv" / "bin" / "python",
+        _root / "venv" / "bin" / "python",
+    ]
+    for _py in _candidates:
+        if _py.is_file() and os.access(_py, os.X_OK):
+            os.execv(str(_py), [str(_py)] + sys.argv)
+    sys.exit(
+        "\n[ERRO] Bibliotecas necessárias não encontradas (matplotlib, pandas, numpy).\n"
+        "Para instalar no seu ambiente Python, execute:\n"
+        "    pip install -r benchmarks/requirements.txt\n\n"
+        "Ou instale via apt no Ubuntu/Debian:\n"
+        "    sudo apt-get install -y python3-matplotlib python3-pandas python3-numpy\n"
+    )
+
 import numpy as np
 import pandas as pd
 
-os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
-import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
