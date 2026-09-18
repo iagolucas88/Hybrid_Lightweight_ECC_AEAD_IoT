@@ -518,16 +518,38 @@ def plot_ponto_otimo_rekeying(df_benchmark: pd.DataFrame, out_dir: Path):
     ax2.set_ylabel("Ocupação Contínua de CPU do Dispositivo (%)", color=C_AMBER, fontsize=10, fontweight="bold", labelpad=8)
     ax2.tick_params(axis="y", labelcolor=C_AMBER)
 
+    ax1.set_ylim(min(amort_latency) * 0.7, max(amort_latency) * 3.0)
+    ax2.set_ylim(-0.2, max(cpu_percent) * 1.35)
+
     ax1.set_title("Otimização do Ponto de Renovação de Chaves (Rekeying Duty Cycle)\n(Balanceamento entre Perfect Forward Secrecy e Disponibilidade da CPU)",
                   fontsize=11.5, fontweight="bold", pad=12)
 
-    # Destaque para N = 1, 10, 50, 100
+    # Destaque para N = 1, 10, 50, 100 com posicionamento estratégico fora da curva
+    cfg_points = {
+        1:   {"xytext": (25, 0),   "ha": "left", "va": "center"},
+        10:  {"xytext": (28, 25),  "ha": "left", "va": "bottom"},
+        50:  {"xytext": (22, 26),  "ha": "left", "va": "bottom"},
+        100: {"xytext": (18, 28),  "ha": "left", "va": "bottom"},
+    }
+
     for target_n in [1, 10, 50, 100]:
         t_am = (t_hs / target_n) + t_msg
         cpu_p = (t_am / t_amostragem_us) * 100.0
-        ax1.plot(target_n, t_am, marker="o", markersize=6, color=C_BLUE)
-        ax1.annotate(f"N={target_n}\n{t_am:.0f} µs\n({cpu_p:.2f}% CPU)", xy=(target_n, t_am), xytext=(0, 10), textcoords="offset points",
-                    ha="center", fontsize=8, fontweight="bold", color=C_NAVY)
+        cfg = cfg_points[target_n]
+        ax1.plot(target_n, t_am, marker="o", markersize=7, color=C_BLUE, zorder=5)
+        ax1.annotate(
+            f"N={target_n}\n{t_am:.0f} µs\n({cpu_p:.2f}% CPU)",
+            xy=(target_n, t_am),
+            xytext=cfg["xytext"],
+            textcoords="offset points",
+            ha=cfg["ha"],
+            va=cfg["va"],
+            fontsize=8.5,
+            fontweight="bold",
+            color=C_NAVY,
+            bbox=dict(boxstyle="round,pad=0.35", facecolor="white", edgecolor="#90CAF9", alpha=0.92, linewidth=0.8),
+            arrowprops=dict(arrowstyle="->", color=C_BLUE, lw=1.0, shrinkA=3, shrinkB=4)
+        )
 
     beautify_ax(ax1, "y")
     ax2.spines["top"].set_visible(False)

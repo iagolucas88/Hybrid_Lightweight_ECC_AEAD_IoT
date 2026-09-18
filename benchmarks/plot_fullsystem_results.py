@@ -350,13 +350,39 @@ def run_plot_scalability(df: pd.DataFrame, rr: str, out_dir: Path):
         return
     sub["sec_bits"] = sub["label"].str.extract(SEC_BITS_RE)[0].astype(int)
     sub = sub.sort_values("sec_bits")
-    fig, ax = plt.subplots(figsize=(8.5, 5))
-    ax.plot(sub["sec_bits"], sub["mean_us"], "o-", linewidth=2.2, color=COLOR_PRIMARY, markersize=7, label="Tempo Médio da Escada (k·P)")
+    fig, ax = plt.subplots(figsize=(9, 5.2))
+    ax.plot(sub["sec_bits"], sub["mean_us"], "o-", linewidth=2.2, color=COLOR_PRIMARY, markersize=7, zorder=4, label="Tempo Médio da Escada (k·P)")
     ax.fill_between(sub["sec_bits"], sub["mean_us"], alpha=0.12, color=COLOR_PRIMARY)
+
+    cfg_scal = {
+        80:  {"xytext": (10, -14),  "ha": "left",  "va": "top"},
+        112: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        128: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        192: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        224: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        256: {"xytext": (-14, 10), "ha": "right", "va": "bottom"},
+    }
+
     for _, row in sub.iterrows():
-        ax.annotate(f"{row['mean_us']:.1f} µs", (row["sec_bits"], row["mean_us"]),
-                    textcoords="offset points", xytext=(0, 7), ha="center", fontsize=8, fontweight="semibold", color="#0D47A1")
+        b = int(row["sec_bits"])
+        cfg = cfg_scal.get(b, {"xytext": (-14, 12), "ha": "right", "va": "bottom"})
+        ax.annotate(
+            f"{row['mean_us']:.1f} µs",
+            xy=(row["sec_bits"], row["mean_us"]),
+            xytext=cfg["xytext"],
+            textcoords="offset points",
+            ha=cfg["ha"],
+            va=cfg["va"],
+            fontsize=8.5,
+            fontweight="bold",
+            color="#0D47A1",
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="#90CAF9", alpha=0.92, linewidth=0.7),
+            arrowprops=dict(arrowstyle="->", color=COLOR_PRIMARY, lw=0.9, shrinkA=2, shrinkB=4)
+        )
+
     ax.set_xticks(sub["sec_bits"])
+    ax.set_ylim(0, sub["mean_us"].max() * 1.15)
+    ax.margins(x=0.06)
     ax.set_xlabel("Nível de Segurança / Tamanho do Campo Escalar (bits)", labelpad=8)
     ax.set_ylabel("Tempo Médio de Execução (µs)", labelpad=8)
     ax.set_title(f"Escalabilidade X25519: Escada de Montgomery vs. Tamanho do Campo — Rodada {rr}", pad=12)
@@ -659,16 +685,31 @@ def comp_plot_protocol_trend(per_run: dict, out_dir: Path, idx: int):
         return
     rows.sort(key=lambda t: t[0])
     runs, means, p95s, p99s = zip(*rows)
-    fig, ax = plt.subplots(figsize=(9, 5.2))
+    fig, ax = plt.subplots(figsize=(11, 5.4))
     ax.plot(runs, means, "o-", label="Tempo Médio", linewidth=2.2, color=COLOR_PRIMARY, markersize=6)
     ax.plot(runs, p95s, "s--", label="Percentil 95 (P95)", linewidth=2.0, color=COLOR_ACCENT, markersize=5.5)
     ax.plot(runs, p99s, "^:", label="Percentil 99 (P99)", linewidth=2.0, color=COLOR_DANGER, markersize=6)
     overall_mean = sum(means) / len(means)
     ax.axhline(overall_mean, color="#78909C", linestyle=":", linewidth=1.2, label=f"Média Geral ({overall_mean:.1f} µs)")
-    ax.set_xlabel("Número da Macro-Rodada (Run)", labelpad=8)
+    ax.set_xlabel("Número da Macro-Rodada (Run)", labelpad=10)
     ax.set_ylabel("Tempo de Execução (µs)", labelpad=8)
     ax.set_title("Protocolo Híbrido Completo (Handshake + 1 Msg): Tendência e Dispersão entre Rodadas", pad=12)
-    ax.set_xticks(runs)
+
+    # Espaçamento inteligente no eixo X para evitar proximidade/aglomeração de números
+    n_runs = len(runs)
+    if n_runs <= 12:
+        selected_ticks = list(runs)
+    elif n_runs <= 25:
+        selected_ticks = [r for r in runs if r % 2 == 0 or r == runs[0] or r == runs[-1]]
+    elif n_runs <= 45:
+        selected_ticks = [r for r in runs if r % 5 == 0 or r == runs[0] or r == runs[-1]]
+    else:
+        step = 5 if n_runs <= 60 else 10
+        selected_ticks = [r for r in runs if r % step == 0 or r == runs[0] or r == runs[-1]]
+
+    ax.set_xticks(sorted(set(selected_ticks)))
+    ax.tick_params(axis="x", pad=8, labelsize=9)
+    ax.margins(x=0.04)
     beautify_ax(ax, "both")
     ax.legend(loc="upper left", frameon=True, framealpha=0.9)
     savefig(fig, out_dir, f"comp_{idx:02d}_protocolo_hibrido_trend.png")
@@ -682,14 +723,40 @@ def comp_plot_scalability(per_run: dict, out_dir: Path, idx: int):
         return
     sub["sec_bits"] = sub["label"].str.extract(SEC_BITS_RE)[0].astype(int)
     agg = sub.groupby("sec_bits")["mean_us"].agg(["mean", "std"]).reset_index().sort_values("sec_bits")
-    fig, ax = plt.subplots(figsize=(8.5, 5.2))
+    fig, ax = plt.subplots(figsize=(9.2, 5.4))
     ax.errorbar(agg["sec_bits"], agg["mean"], yerr=agg["std"].fillna(0), marker="o",
-                linewidth=2.2, capsize=5, capthick=1.2, color=COLOR_PRIMARY, markersize=6,
-                label=f"Média agregada (N={len(per_run)} rodadas) ± 1σ")
+                linewidth=2.2, capsize=5, capthick=1.2, color=COLOR_PRIMARY, markersize=6.5,
+                zorder=4, label=f"Média agregada (N={len(per_run)} rodadas) ± 1σ")
+
+    cfg_scal = {
+        80:  {"xytext": (12, -14),  "ha": "left",  "va": "top"},
+        112: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        128: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        192: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        224: {"xytext": (-14, 12), "ha": "right", "va": "bottom"},
+        256: {"xytext": (-14, 10), "ha": "right", "va": "bottom"},
+    }
+
     for _, row in agg.iterrows():
-        ax.annotate(f"{row['mean']:.1f} µs", (row["sec_bits"], row["mean"]),
-                    textcoords="offset points", xytext=(0, 8), ha="center", fontsize=8.5, fontweight="semibold", color="#0D47A1")
+        b = int(row["sec_bits"])
+        cfg = cfg_scal.get(b, {"xytext": (-14, 12), "ha": "right", "va": "bottom"})
+        ax.annotate(
+            f"{row['mean']:.1f} µs",
+            xy=(row["sec_bits"], row["mean"]),
+            xytext=cfg["xytext"],
+            textcoords="offset points",
+            ha=cfg["ha"],
+            va=cfg["va"],
+            fontsize=8.5,
+            fontweight="bold",
+            color="#0D47A1",
+            bbox=dict(boxstyle="round,pad=0.28", facecolor="white", edgecolor="#90CAF9", alpha=0.92, linewidth=0.7),
+            arrowprops=dict(arrowstyle="->", color=COLOR_PRIMARY, lw=0.9, shrinkA=2, shrinkB=4)
+        )
+
     ax.set_xticks(agg["sec_bits"])
+    ax.set_ylim(0, agg["mean"].max() * 1.16)
+    ax.margins(x=0.06)
     ax.set_xlabel("Nível de Segurança / Tamanho do Campo Simulado (bits)", labelpad=8)
     ax.set_ylabel(f"Tempo Médio Agregado entre {len(per_run)} Rodada(s) (µs)", labelpad=8)
     ax.set_title("Comparativo entre Rodadas: Escalabilidade X25519 vs. Tamanho do Campo", pad=12)
