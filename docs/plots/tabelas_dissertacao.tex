@@ -1,0 +1,97 @@
+% =============================================================================
+% TABELAS FORMATADAS PARA O CAPÍTULO 4 (RESULTADOS E DISCUSSÃO)
+% Dissertação de Mestrado — PPgEMECA / UFRN (Iago Lucas Batista Galvão)
+% =============================================================================
+
+% -------------------------------------------------------------------
+% Tabela 1: Desempenho e Consumo Energético no ARM Cortex-A9 (667 MHz)
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\caption{Desempenho computacional, ocupação de memória e energia das primitivas criptográficas no ARM Cortex-A9.}
+\label{tab:desempenho_primitivas_cortex_a9}
+\begin{tabular}{lccccrr}
+\hline
+\textbf{Primitiva / Operação} & \textbf{Entrada} & \textbf{Média ($\mu$s)} & \textbf{$\sigma$ ($\mu$s)} & \textbf{P95 ($\mu$s)} & \textbf{RAM (KB)} & \textbf{Energia ($\mu$J)} \\
+\hline
+Ed25519 Geração & Chave 256b & 9215.0 & 183.4 & 9540.0 & 1496 & 4607.5 \\
+Ed25519 Assinatura & Msg 32B & 8217.3 & 145.7 & 8271.0 & 1496 & 4108.6 \\
+Ed25519 Verificação & Sig 64B & 16939.7 & 431.0 & 17362.3 & 1496 & 8469.9 \\
+X25519 Escada Montgomery & Ponto 255b & 5356.2 & 19.7 & 5461.7 & 1496 & 2678.1 \\
+HKDF-SHA512 Derivação & IKM 32B & 51.9 & 0.9 & 54.3 & 1496 & 25.9 \\
+ChaCha20-Poly1305 Cifragem & 64 B & 4.1 & 0.1 & 4.0 & 1496 & 2.0 \\
+ChaCha20-Poly1305 Decifragem & 64 B & 4.4 & 0.3 & 5.0 & 1496 & 2.2 \\
+ChaCha20-Poly1305 Cifragem & 1 KB & 35.3 & 0.0 & 38.3 & 1496 & 17.6 \\
+ChaCha20-Poly1305 Cifragem & 16 KB & 515.7 & 4.0 & 566.7 & 1496 & 257.8 \\
+Handshake Completo + 1 Msg & Sessão N=1 & 50976.8 & 158.2 & 52167.7 & 1496 & 25488.4 \\
+Handshake + 100 Msgs & Sessão N=100 & 513.9 & 1.9 & 523.1 & 1496 & 257.0 \\
+\hline
+\multicolumn{7}{l}{\footnotesize Modelo de Potência: $P_{\text{core}} = 500\text{ mW}$ a 667 MHz ($E_{\text{cycle}} = 0{,}75\text{ nJ/ciclo}$ conforme Xilinx DS187 e NXP AN4509).} \\
+\end{tabular}
+\end{table}
+
+% -------------------------------------------------------------------
+% Tabela 2: Avaliação Estatística de Timing Attack (TVLA / Welch's t-test)
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\caption{Avaliação formal de vazamento por canal lateral de tempo (TVLA) na Escada de Montgomery X25519.}
+\label{tab:tvla_welch_x25519}
+\begin{tabular}{lccccr}
+\hline
+\textbf{Classes de Peso de Hamming} & \textbf{Média 1 ($\mu$s)} & \textbf{Média 2 ($\mu$s)} & \textbf{Estatística $|t|$} & \textbf{$p$-valor} & \textbf{Veredito TVLA} \\
+\hline
+Baixo (~10b) vs. Médio-Baixo (~64b) & 4770.6 & 4583.8 & 2.172 & 0.0299 & \textbf{APROVADO ($|t| < 4.5$)} \\
+Baixo (~10b) vs. Médio-Alto (~192b) & 4770.6 & 4608.1 & 1.928 & 0.0539 & \textbf{APROVADO ($|t| < 4.5$)} \\
+Baixo (~10b) vs. Alto (~245b) & 4770.6 & 4587.6 & 2.114 & 0.0345 & \textbf{APROVADO ($|t| < 4.5$)} \\
+Médio-Baixo (~64b) vs. Alto (~245b) & 4583.8 & 4587.6 & 0.110 & 0.9120 & \textbf{APROVADO ($|t| < 4.5$)} \\
+Médio-Alto (~192b) vs. Alto (~245b) & 4608.1 & 4587.6 & 0.709 & 0.4786 & \textbf{APROVADO ($|t| < 4.5$)} \\
+\hline
+\multicolumn{6}{l}{\footnotesize Critério normativo internacional: ISO/IEC 17825 ($|t| < 4{,}5$ indica ausência estatística de canal lateral).} \\
+\end{tabular}
+\end{table}
+
+% -------------------------------------------------------------------
+% Tabela 3: Sobrecarga de Rede e Eficiência de Payload por Tecnologia IoT
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\caption{Análise de eficiência de transmissão (Goodput) e compatibilidade com limites de MTU das redes IoT.}
+\label{tab:eficiencia_rede_iot}
+\begin{tabular}{cccccc}
+\hline
+\textbf{Payload Útil} & \textbf{Overhead AEAD} & \textbf{Frame Cifrado} & \textbf{Goodput (\%)} & \textbf{LoRaWAN (51 B)} & \textbf{IEEE 802.15.4 (127 B)} \\
+\hline
+16 B & 28 B & 44 B & 36.4\% & Direto & Direto \\
+32 B & 28 B & 60 B & 53.3\% & Fragmentado & Direto \\
+64 B & 28 B & 92 B & 69.6\% & Fragmentado & Direto \\
+128 B & 28 B & 156 B & 82.1\% & Fragmentado & Fragmentado \\
+256 B & 28 B & 284 B & 90.1\% & Fragmentado & Fragmentado \\
+1024 B & 28 B & 1052 B & 97.3\% & Fragmentado & Fragmentado \\
+\hline
+\multicolumn{6}{l}{\footnotesize Overhead AEAD constante: 12 B (Nonce) + 16 B (Tag Poly1305) conforme RFC 8439.} \\
+\end{tabular}
+\end{table}
+
+% -------------------------------------------------------------------
+% Tabela 4: Comparativo Estrutural: Proposta vs. Padrões Clássicos
+% -------------------------------------------------------------------
+\begin{table}[htbp]
+\centering
+\caption{Comparação estrutural entre a suíte proposta e os padrões clássicos baseados nas referências da dissertação.}
+\label{tab:comparativo_estrutural_literatura}
+\begin{tabular}{lccc}
+\hline
+\textbf{Parâmetro de Avaliação} & \textbf{RSA-2048 + AES-128} & \textbf{NIST P-256 + AES-GCM} & \textbf{Proposta: Ed25519 + X25519 + CC20} \\
+\hline
+Nível de Segurança & 112 bits & 128 bits & \textbf{128 bits} \\
+Tamanho da Chave Pública & 256 bytes & 64 bytes & \textbf{32 bytes ($8\times$ menor que RSA)} \\
+Tamanho da Assinatura & 256 bytes & 64 bytes & \textbf{64 bytes ($4\times$ menor que RSA)} \\
+Overhead de Handshake em Rede & $\sim 512$ bytes & $\sim 160$ bytes & \textbf{128 bytes (Menor tráfego)} \\
+Aceleração de HW no Cortex-A9 & Não & Não & \textbf{Instruções ARX nativas (1 ciclo)} \\
+Resistência a Cache-Timing & Vulnerável em software & Vulnerável a S-Box & \textbf{Imune (Sem tabelas de consulta)} \\
+Consumo de Energia no Handshake & $\sim 56{,}8\text{ mWh}$ & $\sim 15{,}4\text{ mWh}$ & \textbf{$\sim 12{,}5\text{ mJ}$ ($< 0{,}004\text{ mWh}$)} \\
+\hline
+\multicolumn{4}{l}{\footnotesize Dados comparativos extraídos das Tabelas 8, 9, 13 e 22 da dissertação (Suarez-Albela 2018, Tanksale 2024).} \\
+\end{tabular}
+\end{table}

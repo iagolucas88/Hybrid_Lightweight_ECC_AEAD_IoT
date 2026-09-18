@@ -241,7 +241,7 @@ static void scalar_mul(mpz_t &result, const mpz_t k, const mpz_t u, const CurveC
 
 static void init_curve(CurveCtx &ctx, int sec_bits) {
     mpz_inits(ctx.p, ctx.a24, ctx.one, ctx.zero, nullptr);
-    mpz_set_ui(ctx.a24, 121666);
+    mpz_set_ui(ctx.a24, 121665); // (A-2)/4, RFC 7748 §5 — corrigido de 121666
     mpz_set_ui(ctx.one, 1);
     mpz_set_ui(ctx.zero, 0);
     ctx.security_bits = sec_bits;

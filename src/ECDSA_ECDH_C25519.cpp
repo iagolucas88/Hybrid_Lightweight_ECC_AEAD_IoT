@@ -53,7 +53,7 @@ using Us    = chrono::microseconds;
    Curve25519 (forma de Montgomery): By² = x³ + Ax² + x  sobre GF(p)
      p   = 2^255 – 19        campo primo de 255 bits
      A   = 486662             coeficiente da curva de Montgomery
-     a24 = (A+2)/4 = 121666  constante usada na fórmula de duplo-e-adição
+     a24 = (A-2)/4 = 121665  constante usada na fórmula de duplo-e-adição (RFC 7748 §5)
      Gu  = 9                  coordenada u do ponto base
      n   = ordem do grupo de pontos (cofator 8)
 
@@ -91,7 +91,7 @@ void inic_parametros_c25519() {
     mpz_init_set_str(CURVA_n,
         "7237005577332262213973186563042994240857116359379907606001950938285454250989", 10);
     mpz_init_set_ui(CURVA_a,   486662);
-    mpz_init_set_ui(CURVA_a24, 121666);
+    mpz_init_set_ui(CURVA_a24, 121665); // (A-2)/4, RFC 7748 §5 — corrigido de 121666
     mpz_init_set_ui(CURVA_Gu,  9);
     mpz_init_set_ui(CURVA_zero, 0);
     mpz_init_set_ui(CURVA_one,  1);
@@ -724,12 +724,16 @@ static Poly1305Tag poly1305_mac(const array<uint8_t,32> &key,
     uint64_t r3=(load32_le(rb+9)>>6)&0x3F03FFFULL;
     uint64_t r4=(load32_le(rb+12)>>8)&0x00FFFFFULL;
     uint64_t h0=0,h1=0,h2=0,h3=0,h4=0;
-    auto blk=[&](const uint8_t *b,size_t bl,bool fin){
-        uint8_t buf[17]{}; memcpy(buf,b,bl); buf[bl]=fin?0:1;
+    // Cada bloco (completo ou parcial) recebe o bit terminador 0x01 logo apos
+    // os dados (RFC 8439 Sec. 2.5.1), embutido em buf[bl] independentemente
+    // de ser o ultimo bloco — corrigido de um "fin?0:1" que zerava o bit
+    // terminador do ultimo bloco e duplicava-o via h4 nos blocos intermediarios.
+    auto blk=[&](const uint8_t *b,size_t bl){
+        uint8_t buf[17]{}; memcpy(buf,b,bl); buf[bl]=1;
         uint64_t n0=load64_le(buf),n1=load64_le(buf+8),n2=buf[16];
         h0+=n0&0x3FFFFFFULL; h1+=(n0>>26)&0x3FFFFFFULL;
         h2+=((n0>>52)|(n1<<12))&0x3FFFFFFULL; h3+=(n1>>14)&0x3FFFFFFULL;
-        h4+=(n1>>40)|(n2<<24); if(!fin) h4|=(1ULL<<24);
+        h4+=(n1>>40)|(n2<<24);
         auto d0=h0*r0+h1*(r4*5)+h2*(r3*5)+h3*(r2*5)+h4*(r1*5);
         auto d1=h0*r1+h1*r0   +h2*(r4*5)+h3*(r3*5)+h4*(r2*5);
         auto d2=h0*r2+h1*r1   +h2*r0    +h3*(r4*5)+h4*(r3*5);
@@ -741,8 +745,8 @@ static Poly1305Tag poly1305_mac(const array<uint8_t,32> &key,
         c=d4>>26;h4=d4&0x3FFFFFF;h0+=c*5; c=h0>>26;h0&=0x3FFFFFF;h1+=c;
     };
     size_t off=0;
-    while(off+16<=len){blk(msg+off,16,false);off+=16;}
-    if(off<len) blk(msg+off,len-off,true);
+    while(off+16<=len){blk(msg+off,16);off+=16;}
+    if(off<len) blk(msg+off,len-off);
     uint64_t c;
     c=h1>>26;h1&=0x3FFFFFF;h2+=c; c=h2>>26;h2&=0x3FFFFFF;h3+=c;
     c=h3>>26;h3&=0x3FFFFFF;h4+=c; c=h4>>26;h4&=0x3FFFFFF;h0+=c*5;

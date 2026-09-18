@@ -40,6 +40,8 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
         const std::string aad_text = "defesa:device_A:session_v1";
         int accepted = 0;
         int rejected = 0;
+        long long total_send_us = 0;
+        long long total_validation_us = 0;
 
         log.println("\n[TRAFEGO] Mensagem-base: \"", payload, "\" | Ataque nos indices: ",
                     corrupted.empty() ? "nenhum" : (attack_tag ? "TAG" : "CIPHERTEXT"));
@@ -47,10 +49,12 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
             log.println("\n  -- Mensagem ", index, "/", messages, " --");
             ChaChaNonce nonce{};
             gera_bytes_aleatorios(nonce.data(), nonce.size());
+            const auto send_start = Clock::now();
             auto encrypted = chacha20poly1305_encrypt(
                 key, nonce, reinterpret_cast<const uint8_t *>(payload.data()),
                 payload.size(), reinterpret_cast<const uint8_t *>(aad_text.data()),
                 aad_text.size());
+            const auto send_us = chrono::duration_cast<Us>(Clock::now() - send_start).count();
 
             std::vector<uint8_t> received_ciphertext = encrypted.ciphertext;
             Poly1305Tag received_tag = encrypted.tag;
@@ -68,16 +72,31 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
             log.println("  Ciphertext          : ",
                         (received_ciphertext == encrypted.ciphertext) ? "IGUAIS" : "DIFERENTES");
 
+            bool tags_match = false;
+            std::vector<uint8_t> recovered;
+            const auto validation_start = Clock::now();
+            try {
+                recovered = chacha20poly1305_decrypt(
+                    key, nonce, received_ciphertext.data(), received_ciphertext.size(),
+                    received_tag, reinterpret_cast<const uint8_t *>(aad_text.data()),
+                    aad_text.size());
+                tags_match = true;
+            } catch (const std::exception &) {
+                tags_match = false;
+            }
+            const auto validation_us = chrono::duration_cast<Us>(Clock::now() - validation_start).count();
             const Poly1305Tag tag_receptor = defesa_calcular_tag(
                 key, nonce, reinterpret_cast<const uint8_t *>(aad_text.data()), aad_text.size(),
                 received_ciphertext.data(), received_ciphertext.size());
+            total_send_us += send_us;
+            total_validation_us += validation_us;
+            log.println("  Tempo de Envio (us)         : ", send_us);
+            log.println("  Tempo de Validacao (us)    : ", validation_us);
             log.println("  Tag enviada pelo emissor     : ", bytes_to_hex(received_tag));
             log.println("  Tag recalculada pelo receptor: ", bytes_to_hex(tag_receptor));
-            const bool tags_match = (received_tag == tag_receptor);
-            log.println("  Verificacao Poly1305         : ", tags_match ? "IGUAIS" : "DIFERENTES");
+            log.println("  Verificacao Poly1305         : ", tags_match ? "VALIDA" : "INVALIDA");
 
             if (tags_match) {
-                auto recovered = defesa_decrypt_payload(key, nonce, received_ciphertext);
                 const std::string recovered_text(recovered.begin(), recovered.end());
                 const bool equal = recovered_text == payload;
                 log.println("  Payload original : ", payload);
@@ -100,6 +119,9 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
                     " | Ataques inseridos: ", corrupted.size(), " | Todos detectados: ",
                     (corrupted.empty() ? "N/A" : (all_attacks_rejected ? "SIM" : "NAO")),
                     ANSI_RESET);
+                log.println("  Tempo Total de Execucao (us): ", total_send_us + total_validation_us);
+                log.println("  Tempo Medio por Mensagem (us): ",
+                        static_cast<double>(total_send_us + total_validation_us) / messages);
         defesa_limpar(alice_private, alice_public, bob_private, bob_public, shared_secret);
     } catch (...) {
         defesa_limpar(alice_private, alice_public, bob_private, bob_public, shared_secret);

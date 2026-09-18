@@ -1,31 +1,57 @@
-# Build
+# =============================================================================
+# .gitignore — Hybrid Lightweight ECC and AEAD Encryption Protocol for IoT
+# =============================================================================
+
+# Build directories & CMake output
 build/
 build-*/
 out/
+bin/
 .cache/
 compile_commands.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
 
-# Python virtualenv (benchmarks/resultados)
+# QEMU Full-System VM (imagens de disco de 1.6GB+, kernels, initrd, chaves SSH)
+vm_fullsystem/
+
+# Logs de auditoria da defesa e execução
+Defesa Log/
+*.log
+
+# Execuções locais volumosas de benchmarks (geradas sob demanda)
+benchmark_runs/
+resultados_benchmark.csv
+
+# Python virtual environments, caches e wheels
 benchmarks/resultados/
 *.egg-info/
 __pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 
-# Binários
+# Binários compilados
 *.o
 *.obj
 *.a
 *.so
+*.dylib
 *.dll
 *.exe
 protocolo_hibrido
 benchmark_suite
+demonstrador_defesa
+benchmark_suite_fullsystem
+defesa/demonstrador_defesa_arm
 
-# Resultados de benchmark (gerados automaticamente)
-*.csv
-
-# IDE / editor
-*.log
+# Configurações de IDEs e editores
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
 ~$*
+.DS_Store
