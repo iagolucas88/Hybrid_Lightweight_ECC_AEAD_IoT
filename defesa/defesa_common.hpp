@@ -112,7 +112,7 @@ inline void defesa_limpar(mpz_t &alice_private, mpz_t &alice_public,
     clear_ed25519();
 }
 
-inline std::set<int> defesa_ler_indices(const std::string &value) {
+inline std::set<int> defesa_ler_indices(const std::string &value, int max_index = -1) {
     std::set<int> indices;
     std::stringstream input(value);
     std::string token;
@@ -122,6 +122,11 @@ inline std::set<int> defesa_ler_indices(const std::string &value) {
         char extra = 0;
         if (!(item >> index) || (item >> extra) || index <= 0)
             throw std::runtime_error("indices invalidos; use o formato 13,19");
+        if (max_index > 0 && index > max_index) {
+            throw std::runtime_error("Indice de ataque " + std::to_string(index) +
+                                     " excede a quantidade total de mensagens N (" +
+                                     std::to_string(max_index) + ")");
+        }
         indices.insert(index);
     }
     return indices;

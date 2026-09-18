@@ -14,7 +14,7 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
     std::cin >> corrupted_text;
     std::set<int> corrupted;
     if (corrupted_text != "0" && corrupted_text != "-")
-        corrupted = defesa_ler_indices(corrupted_text);
+        corrupted = defesa_ler_indices(corrupted_text, messages);
     log.print("Corromper Ciphertext ou Tag nesses indices? (C/T) [C]: ");
     std::cin >> attack_kind;
     const bool attack_tag = !attack_kind.empty() && (attack_kind[0] == 'T' || attack_kind[0] == 't');
@@ -40,11 +40,26 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
         const std::string aad_text = "defesa:device_A:session_v1";
         int accepted = 0;
         int rejected = 0;
+        int attacks_injected = 0;
+        int attacks_detected = 0;
+        int false_positives = 0;
+        int undetected_attacks = 0;
         long long total_send_us = 0;
         long long total_validation_us = 0;
 
-        log.println("\n[TRAFEGO] Mensagem-base: \"", payload, "\" | Ataque nos indices: ",
-                    corrupted.empty() ? "nenhum" : (attack_tag ? "TAG" : "CIPHERTEXT"));
+        log.println("\n[TRAFEGO] Mensagem-base: \"", payload, "\" | Tipo de corrupcao: ",
+                    corrupted.empty() ? "nenhum" : (attack_tag ? "TAG Poly1305" : "CIPHERTEXT"));
+        if (!corrupted.empty()) {
+            log.print("  Indices configurados para corrupcao: ");
+            bool first = true;
+            for (int idx : corrupted) {
+                if (!first) log.print(", ");
+                log.print(idx);
+                first = false;
+            }
+            log.println();
+        }
+
         for (int index = 1; index <= messages; ++index) {
             log.println("\n  -- Mensagem ", index, "/", messages, " --");
             ChaChaNonce nonce{};
@@ -59,12 +74,15 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
             std::vector<uint8_t> received_ciphertext = encrypted.ciphertext;
             Poly1305Tag received_tag = encrypted.tag;
             const bool attacked = corrupted.count(index) != 0;
-            if (attacked && attack_tag) {
-                received_tag[0] ^= 0x01;
-                log.println(ANSI_YELLOW, "  [MITM] 1 bit da TAG alterado em transito.", ANSI_RESET);
-            } else if (attacked) {
-                received_ciphertext[0] ^= 0x01;
-                log.println(ANSI_YELLOW, "  [MITM] 1 bit do CIPHERTEXT alterado em transito.", ANSI_RESET);
+            if (attacked) {
+                ++attacks_injected;
+                if (attack_tag) {
+                    received_tag[0] ^= 0x01;
+                    log.println(ANSI_YELLOW, "  [MITM] 1 bit da TAG alterado em transito.", ANSI_RESET);
+                } else {
+                    received_ciphertext[0] ^= 0x01;
+                    log.println(ANSI_YELLOW, "  [MITM] 1 bit do CIPHERTEXT alterado em transito.", ANSI_RESET);
+                }
             }
 
             log.println("  Ciphertext enviado  : ", bytes_to_hex(encrypted.ciphertext));
@@ -97,6 +115,9 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
             log.println("  Verificacao Poly1305         : ", tags_match ? "VALIDA" : "INVALIDA");
 
             if (tags_match) {
+                if (attacked) {
+                    ++undetected_attacks;
+                }
                 const std::string recovered_text(recovered.begin(), recovered.end());
                 const bool equal = recovered_text == payload;
                 log.println("  Payload original : ", payload);
@@ -106,22 +127,34 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
                 log.println(ANSI_GREEN, "  [", index, "/", messages,
                             "] ACEITA: tag Poly1305 valida.", ANSI_RESET);
             } else {
+                if (attacked) {
+                    ++attacks_detected;
+                } else {
+                    ++false_positives;
+                }
                 ++rejected;
                 log.println("  Payload           : NAO DECIFRADO (tag invalida; decifragem abortada)");
                 log.println(ANSI_RED, "  [ALERTA] Mensagem ", index,
                             " REJEITADA: Falha de Integridade Poly1305!", ANSI_RESET);
             }
         }
-        const bool all_attacks_rejected = !corrupted.empty() &&
-                                          rejected == static_cast<int>(corrupted.size());
-        log.println((corrupted.empty() || all_attacks_rejected) ? ANSI_GREEN : ANSI_RED,
-                    "\n[RESULTADO] Aceitas: ", accepted, " | Rejeitadas: ", rejected,
-                    " | Ataques inseridos: ", corrupted.size(), " | Todos detectados: ",
-                    (corrupted.empty() ? "N/A" : (all_attacks_rejected ? "SIM" : "NAO")),
+
+        const bool all_detected = (attacks_injected == 0) || (undetected_attacks == 0 && attacks_detected == attacks_injected);
+        log.println(all_detected ? ANSI_GREEN : ANSI_RED,
+                    "\n[RESULTADO DA AUDITORIA]");
+        log.println("  Mensagens transmitidas: ", messages);
+        log.println("  Mensagens aceitas     : ", accepted);
+        log.println("  Mensagens rejeitadas  : ", rejected);
+        log.println("  Ataques injetados     : ", attacks_injected);
+        log.println("  Ataques detectados    : ", attacks_detected);
+        log.println("  Ataques nao detectados: ", undetected_attacks);
+        log.println("  Falsos positivos      : ", false_positives);
+        log.println("  Todos detectados      : ",
+                    (attacks_injected == 0 ? "N/A (nenhum ataque)" : (all_detected ? "SIM (100% detectados)" : "NAO")),
                     ANSI_RESET);
-                log.println("  Tempo Total de Execucao (us): ", total_send_us + total_validation_us);
-                log.println("  Tempo Medio por Mensagem (us): ",
-                        static_cast<double>(total_send_us + total_validation_us) / messages);
+        log.println("  Tempo Total de Execucao (us): ", total_send_us + total_validation_us);
+        log.println("  Tempo Medio por Mensagem (us): ",
+                    static_cast<double>(total_send_us + total_validation_us) / messages);
         defesa_limpar(alice_private, alice_public, bob_private, bob_public, shared_secret);
     } catch (...) {
         defesa_limpar(alice_private, alice_public, bob_private, bob_public, shared_secret);
