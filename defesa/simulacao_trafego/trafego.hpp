@@ -12,6 +12,10 @@ inline void executar_simulacao_trafego(DefenseLogger &log) {
     std::string custom_payload;
     log.print("Mensagem a transmitir (ENTER para usar padrao): ");
     std::getline(std::cin, custom_payload);
+    while (!custom_payload.empty() && (custom_payload.front() == ' ' || custom_payload.front() == '\t'))
+        custom_payload.erase(0, 1);
+    while (!custom_payload.empty() && (custom_payload.back() == ' ' || custom_payload.back() == '\t' || custom_payload.back() == '\r'))
+        custom_payload.pop_back();
     const std::string payload = custom_payload.empty()
         ? "telemetria{device=sensor_A1,temp=23.4,humidity=61}" : custom_payload;
 
@@ -63,8 +67,8 @@ inline void executar_simulacao_trafego(DefenseLogger &log) {
             const bool equal = recovered_text == payload;
             log.println("  Tempo de Envio (us)         : ", send_us);
             log.println("  Tempo de Validacao (us)    : ", validation_us);
-            log.println("  Payload original : ", payload);
-            log.println("  Payload recebido : ", recovered_text);
+            log.println("  Payload original : \"", payload, "\"");
+            log.println("  Payload recebido : \"", recovered_text, "\"");
             log.println("  Payload           : ", equal ? "IGUAIS" : "DIFERENTES");
             if (!equal)
                 throw std::runtime_error("payload recuperado diferente do original");

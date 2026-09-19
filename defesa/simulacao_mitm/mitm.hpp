@@ -15,15 +15,24 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
     std::set<int> corrupted;
     if (corrupted_text != "0" && corrupted_text != "-")
         corrupted = defesa_ler_indices(corrupted_text, messages);
-    log.print("Corromper Ciphertext ou Tag nesses indices? (C/T) [C]: ");
-    std::cin >> attack_kind;
-    const bool attack_tag = !attack_kind.empty() && (attack_kind[0] == 'T' || attack_kind[0] == 't');
+
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    log.print("Corromper Ciphertext ou Tag nesses indices? (C/T) [C]: ");
+    std::getline(std::cin, attack_kind);
+    while (!attack_kind.empty() && (attack_kind.front() == ' ' || attack_kind.front() == '\t'))
+        attack_kind.erase(0, 1);
+    const bool attack_tag = !attack_kind.empty() && (attack_kind[0] == 'T' || attack_kind[0] == 't');
+
     std::string custom_payload;
     log.print("Mensagem a transmitir (ENTER para usar padrao): ");
     std::getline(std::cin, custom_payload);
+    while (!custom_payload.empty() && (custom_payload.front() == ' ' || custom_payload.front() == '\t'))
+        custom_payload.erase(0, 1);
+    while (!custom_payload.empty() && (custom_payload.back() == ' ' || custom_payload.back() == '\t' || custom_payload.back() == '\r'))
+        custom_payload.pop_back();
     const std::string payload = custom_payload.empty()
-        ? "telemetria{device=sensor_A1,temp=23.4}" : custom_payload;
+        ? "telemetria{device=sensor_A1,temp=23.4,humidity=61}" : custom_payload;
 
     inic_parametros_c25519();
     init_ed25519();
@@ -120,8 +129,8 @@ inline void executar_simulacao_mitm(DefenseLogger &log) {
                 }
                 const std::string recovered_text(recovered.begin(), recovered.end());
                 const bool equal = recovered_text == payload;
-                log.println("  Payload original : ", payload);
-                log.println("  Payload recebido : ", recovered_text);
+                log.println("  Payload original : \"", payload, "\"");
+                log.println("  Payload recebido : \"", recovered_text, "\"");
                 log.println("  Payload           : ", equal ? "IGUAIS" : "DIFERENTES");
                 ++accepted;
                 log.println(ANSI_GREEN, "  [", index, "/", messages,
