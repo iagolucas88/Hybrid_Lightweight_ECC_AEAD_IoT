@@ -3,13 +3,24 @@
 #include "../defesa_common.hpp"
 #include <bitset>
 
-inline std::string payload_demonstracao(std::size_t size) {
-    const std::string prefix = "telemetria{device=sensor_A1,data=";
-    std::string payload;
-    payload.reserve(size);
-    for (std::size_t index = 0; index < size; ++index)
-        payload.push_back(prefix[index % prefix.size()]);
-    return payload;
+inline std::string payload_demonstracao(const std::string &msg, std::size_t size) {
+    if (!msg.empty() && msg != "mensagem para a banca") {
+        if (size <= msg.size()) return msg;
+        return msg + std::string(size - msg.size(), ' ');
+    }
+    const std::string base_msg = "telemetria{device=sensor_A1,temp=23.4,humidity=61}";
+    if (size <= base_msg.size()) {
+        return base_msg.substr(0, size);
+    }
+    const std::string prefix = "telemetria{device=sensor_A1,temp=23.4,padding=";
+    const std::string suffix = "}";
+    if (size < prefix.size() + suffix.size() + 1) {
+        std::string s = base_msg;
+        s.resize(size, ' ');
+        return s;
+    }
+    const std::size_t pad_len = size - prefix.size() - suffix.size();
+    return prefix + std::string(pad_len, '0') + suffix;
 }
 
 inline ChaChaNonce nonce_pacote_sequencial(const ChaChaNonce &base_nonce,
@@ -29,6 +40,7 @@ inline std::array<uint8_t, 64> imprimir_bloco_chacha(const ChaChaKey &key,
                                                       uint32_t packet_counter,
                                                       uint32_t block_counter,
                                                       DefenseLogger &log) {
+    (void)packet_counter;
     uint32_t input_state[16];
     const uint32_t constants[4] = {0x61707865u, 0x3320646eu, 0x79622d32u, 0x6b206574u};
     for (int index = 0; index < 4; ++index) input_state[index] = constants[index];
@@ -121,7 +133,7 @@ inline void executar_inspecao_matematica(DefenseLogger &log) {
         ChaChaNonce nonce{};
         gera_bytes_aleatorios(nonce.data(), nonce.size());
         const std::string aad = "defesa:device_A:session_v1";
-        const std::string payload = payload_demonstracao(payload_size);
+        const std::string payload = payload_demonstracao(custom_message, payload_size);
         const ChaChaNonce packet_nonce = nonce_pacote_sequencial(nonce, last_counter);
 
         log.println("\n  Mensagem assinada        : \"", message, "\"");
@@ -133,23 +145,49 @@ inline void executar_inspecao_matematica(DefenseLogger &log) {
         log.println("  Verificacao Ed25519      : ", signature_valid ? "VALIDA" : "INVALIDA");
         log.println("  Chave final HKDF-SHA512  : ", bytes_to_hex(key));
         log.println("  Chave HKDF little-endian : ", defesa_chave_little_endian(key));
-        log.println("  Nonce de demonstracao    : ", bytes_to_hex(nonce));
+        log.println("  Nonce Base da sessao (N0): ", bytes_to_hex(nonce));
         log.println("  Payload solicitado       : ", payload_size, " bytes");
         log.println("  Blocos payload (64 B)   : ", payload_blocks);
         log.println("  Total ChaCha20           : 1 bloco Poly1305 + ", payload_blocks,
                     " blocos payload = ", total_blocks, " blocos");
 
-        log.println("\n[AEAD] Pacote ", last_counter, " | nonce do pacote ", last_counter,
-                    " = ", bytes_to_hex(packet_nonce));
-        log.println("  Payload original: ", payload);
+        log.println("\n[AEAD] Pacote ", last_counter, " — EVOLUCAO DO NONCE (Regra RFC 8439 Anti-Reuso):");
+        log.println("  Nonce Base da Sessao (N0) : ", bytes_to_hex(nonce));
+        log.println("  Incremento do Contador    : +", last_counter, " (0x", std::hex, last_counter, std::dec, ")");
+        log.println("  Nonce do Pacote ", last_counter, "        : ", bytes_to_hex(packet_nonce));
+        log.println("  Nonce em little-endian    : ", defesa_nonce_little_endian(packet_nonce));
+
+        std::string display_orig = payload;
+        while (!display_orig.empty() && display_orig.back() == ' ')
+            display_orig.pop_back();
+        log.println("\n  Payload original: \"", display_orig, "\" (", payload.size(), " bytes)");
+
         log.println("\n[1/", total_blocks, "] Gerando subchave Poly1305 com bloco ChaCha20=0");
         imprimir_bloco_chacha(key, packet_nonce, last_counter, 0, log);
         for (std::size_t block = 1; block <= payload_blocks; ++block) {
+            const std::size_t offset = (block - 1) * 64;
+            const std::size_t block_bytes = std::min<std::size_t>(64, payload.size() - offset);
             log.println("\n[", block + 1, "/", total_blocks,
                         "] Cifrando bloco de payload ChaCha20=", block,
-                        " (", std::min<std::size_t>(64, payload_size - (block - 1) * 64), " bytes)");
-            imprimir_bloco_chacha(key, packet_nonce, last_counter,
-                                  static_cast<uint32_t>(block), log);
+                        " (", block_bytes, " bytes)");
+            auto ks = imprimir_bloco_chacha(key, packet_nonce, last_counter,
+                                            static_cast<uint32_t>(block), log);
+
+            std::vector<uint8_t> pt_chunk(payload.begin() + offset, payload.begin() + offset + block_bytes);
+            std::vector<uint8_t> ct_chunk(block_bytes);
+            for (std::size_t i = 0; i < block_bytes; ++i) {
+                ct_chunk[i] = pt_chunk[i] ^ ks[i];
+            }
+            log.println("    Operacao XOR de Cifragem (Payload (+) Keystream = Ciphertext):");
+            if (block_bytes <= 32) {
+                log.println("      Payload bloco (hex)    : ", bytes_to_hex(pt_chunk));
+                log.println("      Keystream bloco (hex)  : ", bytes_to_hex(ks.data(), block_bytes));
+                log.println("      Ciphertext bloco (hex) : ", bytes_to_hex(ct_chunk));
+            } else {
+                log.println("      Payload bloco (hex)    : ", bytes_to_hex(pt_chunk.data(), 32), "... (", block_bytes, " bytes)");
+                log.println("      Keystream bloco (hex)  : ", bytes_to_hex(ks.data(), 32), "...");
+                log.println("      Ciphertext bloco (hex) : ", bytes_to_hex(ct_chunk.data(), 32), "...");
+            }
         }
 
         auto encrypted = chacha20poly1305_encrypt(
@@ -158,16 +196,42 @@ inline void executar_inspecao_matematica(DefenseLogger &log) {
         const Poly1305Tag receiver_tag = defesa_calcular_tag(
             key, packet_nonce, reinterpret_cast<const uint8_t *>(aad.data()), aad.size(),
             encrypted.ciphertext.data(), encrypted.ciphertext.size());
-        log.println("\n[TRANSMISSAO] Ciphertext enviado: ", bytes_to_hex(encrypted.ciphertext));
-        log.println("[AUTENTICACAO] Tag emissor   : ", bytes_to_hex(encrypted.tag));
-        log.println("[AUTENTICACAO] Tag receptor : ", bytes_to_hex(receiver_tag));
-        log.println("[AUTENTICACAO] Tags: ", encrypted.tag == receiver_tag ? "IGUAIS" : "DIFERENTES");
+
+        log.println("\n=============================================================================");
+        log.println(" [MEIO FISICO / ENLACE DE RADIO] QUADRO TRANSMITIDO NO CANAL (ANTENA / CABO)");
+        log.println("=============================================================================");
+        log.println(" Estrutura do Pacote AEAD em Transito:");
+        log.println("   [ Nonce (12 Bytes) | Ciphertext (", encrypted.ciphertext.size(), " Bytes) | Tag Poly1305 (16 Bytes) ]");
+        log.println("\n Detalhamento dos Campos no Meio Fisico:");
+        log.println("   1. Nonce de Enlace (12 Bytes)   : ", bytes_to_hex(packet_nonce), " (Publico / anti-replay)");
+        log.println("   2. Ciphertext Cifrado (", encrypted.ciphertext.size(), " B) : ",
+                    (encrypted.ciphertext.size() <= 48 ? bytes_to_hex(encrypted.ciphertext) : bytes_to_hex(encrypted.ciphertext.data(), 48) + "..."));
+        log.println("   3. Tag de Autenticacao (16 B)   : ", bytes_to_hex(encrypted.tag), " (Garante integridade e autenticidade)");
+        log.println("\n Sobrecarga do Protocolo no Canal IoT:");
+        log.println("   Payload Util : ", payload.size(), " Bytes");
+        log.println("   Overhead AEAD: 28 Bytes (12 B Nonce + 16 B Tag Poly1305)");
+        log.println("   Total Transmitido: ", payload.size() + 28, " Bytes (Goodput: ",
+                    std::fixed, std::setprecision(1), (static_cast<double>(payload.size()) / (payload.size() + 28)) * 100.0, " %)");
+        log.println("=============================================================================");
+
+        log.println("\n[AUTENTICACAO]");
+        log.println("  Tag enviada pelo emissor     : ", bytes_to_hex(encrypted.tag));
+        log.println("  Tag recalculada pelo receptor: ", bytes_to_hex(receiver_tag));
+        log.println("  Verificacao Poly1305         : ", encrypted.tag == receiver_tag ? "IGUAIS (VALIDA)" : "DIFERENTES (FALHA)");
         if (encrypted.tag != receiver_tag)
             throw std::runtime_error("tag divergente durante a demonstracao");
+
         auto recovered = defesa_decrypt_payload(key, packet_nonce, encrypted.ciphertext);
         const std::string recovered_payload(recovered.begin(), recovered.end());
-        log.println("\n[DECIFRAGEM] Tag validada; payload recebido: ", recovered_payload);
-        log.println("[DECIFRAGEM] Payloads: ", recovered_payload == payload ? "IGUAIS - ACEITO" : "DIFERENTES - REJEITADO");
+        std::string display_received = recovered_payload;
+        while (!display_received.empty() && display_received.back() == ' ')
+            display_received.pop_back();
+
+        log.println("\n[DECIFRAGEM]");
+        log.println("  Tag validada com sucesso pelo receptor.");
+        log.println("  Payload original : \"", display_orig, "\"");
+        log.println("  Payload recebido : \"", display_received, "\"");
+        log.println("  Payloads         : ", recovered_payload == payload ? "IGUAIS - ACEITO" : "DIFERENTES - REJEITADO");
 
         mpz_clears(x_affine, y_affine, inverse, nullptr);
         defesa_limpar(alice_private, alice_public, bob_private, bob_public,

@@ -25,6 +25,16 @@ inline std::string defesa_chave_little_endian(const ChaChaKey &key) {
     return output.str();
 }
 
+inline std::string defesa_nonce_little_endian(const ChaChaNonce &nonce) {
+    std::ostringstream output;
+    output << std::hex << std::setfill('0');
+    for (std::size_t index = 0; index < nonce.size(); index += 4) {
+        output << std::setw(8) << load32_le(nonce.data() + index);
+        if (index + 4 < nonce.size()) output << ' ';
+    }
+    return output.str();
+}
+
 inline std::string defesa_mpz_hex_le(const mpz_t value, std::size_t bytes) {
     std::vector<uint8_t> buffer(bytes, 0);
     std::size_t written = 0;
