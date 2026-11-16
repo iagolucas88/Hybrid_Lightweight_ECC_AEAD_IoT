@@ -141,7 +141,6 @@ Para gerar diretamente os **6 gráficos especializados de pós-processamento ana
 * `dissertacao_04_eficiencia_rede_goodput.png`
 * `dissertacao_05_tvla_welch_ttest.png`
 * `dissertacao_06_ponto_otimo_rekeying.png`
-* `tabelas_dissertacao.tex` (código LaTeX para copiar no Overleaf)
 
 ---
 
@@ -263,7 +262,7 @@ Abaixo estão os dados consolidados das 50 macro-rodadas (amostragem de 50.000 i
 | **ChaCha20-Poly1305 Cifragem** | Payload 16 KB | **$527{,}7$** | $30{,}9$ | $654{,}6$ | $5{,}86\%$ | $263{,}9$ |
 | **HKDF-SHA512 Derivação** | 32B IKM $\to$ 32B OKM | **$51{,}2$** | $0{,}58$ | $54{,}4$ | **$1{,}13\%$** | $25{,}6$ |
 
-> Os dados brutos consolidados estão disponíveis no arquivo CSV [docs/plots/analise_intervalo_macro_1_a_50.csv](docs/plots/analise_intervalo_macro_1_a_50.csv) e as tabelas completas formatadas para LaTeX estão no arquivo compilável [docs/plots/tabelas_dissertacao.tex](docs/plots/tabelas_dissertacao.tex).
+> Os dados brutos consolidados estão disponíveis no arquivo CSV [docs/plots/analise_intervalo_macro_1_a_50.csv](docs/plots/analise_intervalo_macro_1_a_50.csv).
 
 ---
 
@@ -280,8 +279,6 @@ Dados fundamentados nas referências bibliográficas da dissertação (**Suarez-
 | **Aceleração / Operações no ARM** | Multiplicação $\mathcal{O}(n^2)$ | Aritmética pesada em campo primo | **Instruções ARX nativas de 1 ciclo** |
 | **Vulnerabilidade a Cache-Timing** | Vulnerável em software | Vulnerável a acessos S-Box | **Imune (Sem tabelas de consulta em memória)** |
 | **Energia Consumida no Handshake** | $\sim 56{,}8\text{ mWh}$ | $\sim 15{,}4\text{ mWh}$ | **$\sim 24{,}8\text{ mJ}$ ($< 0{,}007\text{ mWh}$)** |
-
-> As tabelas completas com média amostral, desvio padrão, percentis P95 e P99 estão disponíveis no arquivo compilável [docs/plots/tabelas_dissertacao.tex](docs/plots/tabelas_dissertacao.tex).
 
 ---
 
@@ -328,8 +325,7 @@ Hybrid_Lightweight_ECC_AEAD_IoT/
         ├── dissertacao_05_tvla_welch_ttest.png
         ├── dissertacao_06_ponto_otimo_rekeying.png
         ├── comp_01_protocolo_hibrido_trend.png
-        ├── comp_08_stability_cv.png
-        └── tabelas_dissertacao.tex
+        └── comp_08_stability_cv.png
 ```
 
 ---

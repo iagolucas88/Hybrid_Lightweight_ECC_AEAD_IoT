@@ -25,7 +25,6 @@ Saídas Geradas:
   - dissertacao_04_eficiencia_rede_goodput.png
   - dissertacao_05_tvla_welch_ttest.png
   - dissertacao_06_ponto_otimo_rekeying.png
-  - tabelas_dissertacao.tex (Tabelas em LaTeX para o Capítulo 4)
 =============================================================================
 """
 
@@ -558,142 +557,6 @@ def plot_ponto_otimo_rekeying(df_benchmark: pd.DataFrame, out_dir: Path):
 
 
 # ---------------------------------------------------------------------------
-# 7. EXPORTAÇÃO DE TABELAS FORMATADAS EM LATEX
-# ---------------------------------------------------------------------------
-def export_latex_tables(df_benchmark: pd.DataFrame, tvla_results: list, out_dir: Path):
-    """Gera tabelas completas em sintaxe LaTeX prontas para o Overleaf / Dissertação."""
-    tex_path = out_dir / "tabelas_dissertacao.tex"
-
-    with open(tex_path, "w", encoding="utf-8") as f:
-        f.write("% =============================================================================\n")
-        f.write("% TABELAS FORMATADAS PARA O CAPÍTULO 4 (RESULTADOS E DISCUSSÃO)\n")
-        f.write("% Dissertação de Mestrado — PPgEMECA / UFRN (Iago Lucas Batista Galvão)\n")
-        f.write("% =============================================================================\n\n")
-
-        # -------------------------------------------------------------------
-        # TABELA 1: Resumo Geral de Desempenho e Energia
-        # -------------------------------------------------------------------
-        f.write("% -------------------------------------------------------------------\n")
-        f.write("% Tabela 1: Desempenho e Consumo Energético no ARM Cortex-A9 (667 MHz)\n")
-        f.write("% -------------------------------------------------------------------\n")
-        f.write("\\begin{table}[htbp]\n")
-        f.write("\\centering\n")
-        f.write("\\caption{Desempenho computacional, ocupação de memória e energia das primitivas criptográficas no ARM Cortex-A9.}\n")
-        f.write("\\label{tab:desempenho_primitivas_cortex_a9}\n")
-        f.write("\\begin{tabular}{lccccrr}\n")
-        f.write("\\hline\n")
-        f.write("\\textbf{Primitiva / Operação} & \\textbf{Entrada} & \\textbf{Média ($\\mu$s)} & \\textbf{$\\sigma$ ($\\mu$s)} & \\textbf{P95 ($\\mu$s)} & \\textbf{RAM (KB)} & \\textbf{Energia ($\\mu$J)} \\\\\n")
-        f.write("\\hline\n")
-
-        target_ops = [
-            ("Ed25519 KeyGen (isolado)", "Chave 256b", "Ed25519 Geração"),
-            ("Ed25519 Sign (isolado)", "Msg 32B", "Ed25519 Assinatura"),
-            ("Ed25519 Verify (isolado)", "Sig 64B", "Ed25519 Verificação"),
-            ("Curve25519 (128-bit sec / 255-bit field) [real]", "Ponto 255b", "X25519 Escada Montgomery"),
-            ("HKDF-SHA512 isolado (32B IKM -> 32B OKM)", "IKM 32B", "HKDF-SHA512 Derivação"),
-            ("CC20-Poly1305 Enc 64 B (throughput)", "64 B", "ChaCha20-Poly1305 Cifragem"),
-            ("CC20-Poly1305 Dec 64 B (throughput)", "64 B", "ChaCha20-Poly1305 Decifragem"),
-            ("CC20-Poly1305 Enc 1024 B (throughput)", "1 KB", "ChaCha20-Poly1305 Cifragem"),
-            ("CC20-Poly1305 Enc 16384 B (throughput)", "16 KB", "ChaCha20-Poly1305 Cifragem"),
-            ("Custo amortizado (N=1 msgs)", "Sessão N=1", "Handshake Completo + 1 Msg"),
-            ("Custo amortizado (N=100 msgs)", "Sessão N=100", "Handshake + 100 Msgs"),
-        ]
-
-        for raw, ent, nome_bonito in target_ops:
-            row = df_benchmark[df_benchmark["label"] == raw]
-            if row.empty:
-                row = df_benchmark[df_benchmark["label"].str.startswith(raw)]
-            if not row.empty:
-                m_us = float(row["mean_us"].iloc[0])
-                s_us = float(row["std_us"].iloc[0])
-                p95 = float(row["p95_us_mean"].iloc[0]) if "p95_us_mean" in row.columns else (float(row["p95_us"].iloc[0]) if "p95_us" in row.columns else 0.0)
-                ram = int(row["vmhwm_kb"].iloc[0]) if "vmhwm_kb" in row.columns else 1496
-                e_uj = m_us * P_CORE_W
-                f.write(f"{nome_bonito} & {ent} & {m_us:.1f} & {s_us:.1f} & {p95:.1f} & {ram} & {e_uj:.1f} \\\\\n")
-
-        f.write("\\hline\n")
-        f.write("\\multicolumn{7}{l}{\\footnotesize Modelo de Potência: $P_{\\text{core}} = 500\\text{ mW}$ a 667 MHz ($E_{\\text{cycle}} = 0{,}75\\text{ nJ/ciclo}$ conforme Xilinx DS187 e NXP AN4509).} \\\\\n")
-        f.write("\\end{tabular}\n")
-        f.write("\\end{table}\n\n")
-
-        # -------------------------------------------------------------------
-        # TABELA 2: Avaliação Formal de Timing Attack (TVLA)
-        # -------------------------------------------------------------------
-        if tvla_results:
-            f.write("% -------------------------------------------------------------------\n")
-            f.write("% Tabela 2: Avaliação Estatística de Timing Attack (TVLA / Welch's t-test)\n")
-            f.write("% -------------------------------------------------------------------\n")
-            f.write("\\begin{table}[htbp]\n")
-            f.write("\\centering\n")
-            f.write("\\caption{Avaliação formal de vazamento por canal lateral de tempo (TVLA) na Escada de Montgomery X25519.}\n")
-            f.write("\\label{tab:tvla_welch_x25519}\n")
-            f.write("\\begin{tabular}{lccccr}\n")
-            f.write("\\hline\n")
-            f.write("\\textbf{Classes de Peso de Hamming} & \\textbf{Média 1 ($\\mu$s)} & \\textbf{Média 2 ($\\mu$s)} & \\textbf{Estatística $|t|$} & \\textbf{$p$-valor} & \\textbf{Veredito TVLA} \\\\\n")
-            f.write("\\hline\n")
-            for r in tvla_results:
-                veredito = "\\textbf{APROVADO ($|t| < 4{,}5$)}" if r["pass"] else "\\textbf{ALERTA ($|t| \\ge 4{,}5$)}"
-                f.write(f"{r['c1']} vs. {r['c2']} & {r['m1']:.1f} & {r['m2']:.1f} & {r['abs_t']:.3f} & {r['p_val']:.4f} & {veredito} \\\\\n")
-            f.write("\\hline\n")
-            f.write("\\multicolumn{6}{l}{\\footnotesize Critério normativo internacional: ISO/IEC 17825 ($|t| < 4{,}5$ indica ausência estatística de canal lateral).} \\\\\n")
-            f.write("\\end{tabular}\n")
-            f.write("\\end{table}\n\n")
-
-        # -------------------------------------------------------------------
-        # TABELA 3: Sobrecarga de Rede e Goodput por Tecnologia IoT
-        # -------------------------------------------------------------------
-        f.write("% -------------------------------------------------------------------\n")
-        f.write("% Tabela 3: Sobrecarga de Rede e Eficiência de Payload por Tecnologia IoT\n")
-        f.write("% -------------------------------------------------------------------\n")
-        f.write("\\begin{table}[htbp]\n")
-        f.write("\\centering\n")
-        f.write("\\caption{Análise de eficiência de transmissão (Goodput) e compatibilidade com limites de MTU das redes IoT.}\n")
-        f.write("\\label{tab:eficiencia_rede_iot}\n")
-        f.write("\\begin{tabular}{cccccc}\n")
-        f.write("\\hline\n")
-        f.write("\\textbf{Payload Útil} & \\textbf{Overhead AEAD} & \\textbf{Frame Cifrado} & \\textbf{Goodput (\\%)} & \\textbf{LoRaWAN (51 B)} & \\textbf{IEEE 802.15.4 (127 B)} \\\\\n")
-        f.write("\\hline\n")
-        for p in [16, 32, 64, 128, 256, 1024]:
-            tot = p + AEAD_HEADER_TAG_BYTES
-            eff = (p / tot) * 100.0
-            lora = "Direto" if tot <= 51 else "Fragmentado"
-            zigbee = "Direto" if tot <= 127 else "Fragmentado"
-            f.write(f"{p} B & 28 B & {tot} B & {eff:.1f}\\% & {lora} & {zigbee} \\\\\n")
-        f.write("\\hline\n")
-        f.write("\\multicolumn{6}{l}{\\footnotesize Overhead AEAD constante: 12 B (Nonce) + 16 B (Tag Poly1305) conforme RFC 8439.} \\\\\n")
-        f.write("\\end{tabular}\n")
-        f.write("\\end{table}\n\n")
-
-        # -------------------------------------------------------------------
-        # TABELA 4: Comparativo Proposta vs. RSA / NIST (Literatura)
-        # -------------------------------------------------------------------
-        f.write("% -------------------------------------------------------------------\n")
-        f.write("% Tabela 4: Comparativo Estrutural: Proposta vs. Padrões Clássicos\n")
-        f.write("% -------------------------------------------------------------------\n")
-        f.write("\\begin{table}[htbp]\n")
-        f.write("\\centering\n")
-        f.write("\\caption{Comparação estrutural entre a suíte proposta e os padrões clássicos baseados nas referências da dissertação.}\n")
-        f.write("\\label{tab:comparativo_estrutural_literatura}\n")
-        f.write("\\begin{tabular}{lccc}\n")
-        f.write("\\hline\n")
-        f.write("\\textbf{Parâmetro de Avaliação} & \\textbf{RSA-2048 + AES-128} & \\textbf{NIST P-256 + AES-GCM} & \\textbf{Proposta: Ed25519 + X25519 + CC20} \\\\\n")
-        f.write("\\hline\n")
-        f.write("Nível de Segurança & 112 bits & 128 bits & \\textbf{128 bits} \\\\\n")
-        f.write("Tamanho da Chave Pública & 256 bytes & 64 bytes & \\textbf{32 bytes ($8\\times$ menor que RSA)} \\\\\n")
-        f.write("Tamanho da Assinatura & 256 bytes & 64 bytes & \\textbf{64 bytes ($4\\times$ menor que RSA)} \\\\\n")
-        f.write("Overhead de Handshake em Rede & $\\sim 512$ bytes & $\\sim 160$ bytes & \\textbf{128 bytes (Menor tráfego)} \\\\\n")
-        f.write("Aceleração de HW no Cortex-A9 & Não & Não & \\textbf{Instruções ARX nativas (1 ciclo)} \\\\\n")
-        f.write("Resistência a Cache-Timing & Vulnerável em software & Vulnerável a S-Box & \\textbf{Imune (Sem tabelas de consulta)} \\\\\n")
-        f.write("Consumo de Energia no Handshake & $\\sim 56{,}8\\text{ mWh}$ & $\\sim 15{,}4\\text{ mWh}$ & \\textbf{$\\sim 12{,}5\\text{ mJ}$ ($< 0{,}004\\text{ mWh}$)} \\\\\n")
-        f.write("\\hline\n")
-        f.write("\\multicolumn{4}{l}{\\footnotesize Dados comparativos extraídos das Tabelas 8, 9, 13 e 22 da dissertação (Suarez-Albela 2018, Tanksale 2024).} \\\\\n")
-        f.write("\\end{tabular}\n")
-        f.write("\\end{table}\n")
-
-    print(f"  [ok-dissertação] Tabelas em LaTeX exportadas: {tex_path}")
-
-
-# ---------------------------------------------------------------------------
 # PONTO DE ENTRADA PRINCIPAL
 # ---------------------------------------------------------------------------
 def process_dissertacao_results(test_dir: Path, out_dir: Path | None = None, macro_csv: Path | None = None):
@@ -746,9 +609,6 @@ def process_dissertacao_results(test_dir: Path, out_dir: Path | None = None, mac
 
     # 6. Ponto ótimo de rekeying
     plot_ponto_otimo_rekeying(df_benchmark, out_dir)
-
-    # 7. Exportação de tabelas LaTeX
-    export_latex_tables(df_benchmark, tvla_results, out_dir)
     print("==> [DISSERTAÇÃO] Concluído com sucesso.\n")
 
 
